@@ -1,0 +1,13 @@
+certifi==2024.8.30
+charset-normalizer==3.4.0
+idna==3.10
+praw==7.8.1
+prawcore==2.4.0
+PySide6==6.8.0.2
+PySide6_Addons==6.8.0.2
+PySide6_Essentials==6.8.0.2
+requests==2.32.3
+shiboken6==6.8.0.2
+update-checker==0.18.0
+urllib3==2.2.3
+websocket-client==1.8.0
