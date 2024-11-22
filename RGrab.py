@@ -2,7 +2,7 @@ import re
 import sys
 
 import praw
-from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6 import QtCore, QtWidgets
 
 class Scraper(QtCore.QObject):
     
