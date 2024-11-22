@@ -7,6 +7,7 @@ from PySide6 import QtCore, QtWidgets, QtGui
 class Scraper(QtCore.QObject):
     
     scrape_progress = QtCore.Signal(int)
+    scrape_error = QtCore.Signal(str)
     
     scrape_finished = QtCore.Signal(int, str)
     finished = QtCore.Signal()
@@ -19,30 +20,48 @@ class Scraper(QtCore.QObject):
         
     @QtCore.Slot() 
     def scrape(self):
-        submission = self.reddit.submission(url=self.r_url)
-        trees = []
-        for tlc in submission.comments:
-            trees.append(praw.models.comment_forest.CommentForest(submission, [tlc]))
-        progress_counter = 0
-        num_trees = len(trees)
-        for t in trees:
-            t.replace_more(limit=None)
-            progress_counter+=1
-            self.scrape_progress.emit(progress_counter * 100 // (num_trees * 2))
-        comment_counter = 0
-        with open(self.outfile, "w") as f:
+        err_msg = ""
+        if self.r_url == "":
+            err_msg = "<font color='red'>Please input a link to a reddit thread!</font>"
+        elif self.outfile == "":
+            err_msg = "<font color='red'>Please select a file to save the comments in!</font>"
+        if err_msg != "":
+            self.scrape_error.emit(err_msg)
+            self.finished.emit()
+            return
+        try:
+            submission = self.reddit.submission(url=self.r_url)
+            trees = []
+            for tlc in submission.comments:
+                trees.append(praw.models.comment_forest.CommentForest(submission, [tlc]))
+            progress_counter = 0
+            num_trees = len(trees)
             for t in trees:
-                for comment in t.list():
-                    f.write("\n")
-                    f.write(re.sub(r'\s+',' ',comment.body))
-                    f.write("\n")
-                    comment_counter+=1
+                t.replace_more(limit=None)
                 progress_counter+=1
                 self.scrape_progress.emit(progress_counter * 100 // (num_trees * 2))
-            f.write(f"Output {comment_counter} comments")
-        self.scrape_finished.emit(comment_counter, self.outfile)
-        self.finished.emit()
-
+            comment_counter = 0
+            with open(self.outfile, "w") as f:
+                for t in trees:
+                    for comment in t.list():
+                        f.write("\n")
+                        f.write(re.sub(r'\s+',' ',comment.body))
+                        f.write("\n")
+                        comment_counter+=1
+                    progress_counter+=1
+                    self.scrape_progress.emit(progress_counter * 100 // (num_trees * 2))
+                f.write(f"Output {comment_counter} comments")
+        except praw.exceptions.PRAWException as e:
+            self.scrape_error.emit(f"<font color='red'>PRAWException: {str(e)}</font>")
+        except OSError as e:
+            self.scrape_error.emit(f"<font color='red'>OSError: {str(e)}</font>")
+        except Exception as e:
+            self.scrape_error.emit(f"<font color='red'>Exception: {str(e)}</font>")
+        else:
+            self.scrape_finished.emit(comment_counter, self.outfile)
+        finally:
+            self.finished.emit()
+            
 
 
 class RGrabWidget(QtWidgets.QWidget):
@@ -61,7 +80,7 @@ class RGrabWidget(QtWidgets.QWidget):
         self.row1.addWidget(self.instructions_text)
         self.row1.addWidget(self.r_link_text)
         
-        self.test_text = QtWidgets.QLabel("0", alignment=QtCore.Qt.AlignCenter)
+        self.test_text = QtWidgets.QLabel("", alignment=QtCore.Qt.AlignCenter)
         
         self.button = QtWidgets.QPushButton("Select File")
         self.row2 = QtWidgets.QHBoxLayout()
@@ -128,6 +147,7 @@ class RGrabWidget(QtWidgets.QWidget):
         self.scrape_thread.started.connect(self.scraper.scrape)
         
         self.scraper.scrape_progress.connect(self.progress_bar.setValue) 
+        self.scraper.scrape_error.connect(self.handle_scrape_error)
         
         self.scraper.finished.connect(self.progress_bar.reset)
         self.scraper.finished.connect(self.scrape_thread.quit)
@@ -140,7 +160,14 @@ class RGrabWidget(QtWidgets.QWidget):
     @QtCore.Slot(int, str) 
     def end_scrape(self, counter, outfile):
         self.result_text.setText(f"Output {counter} comments to file {outfile}")
+        self.test_text.setText("")
         self.scrape_button.setEnabled(True)
+    
+    @QtCore.Slot(str)
+    def handle_scrape_error(self, error_msg):
+        self.result_text.setText(error_msg)
+        self.scrape_button.setEnabled(True)
+        
         
 
 if __name__ == "__main__":
