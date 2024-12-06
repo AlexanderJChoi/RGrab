@@ -1,5 +1,5 @@
 # RGrab
-grabbing comments from Reddit
+Python Gui application that downloads all comments from a reddit thread into a file.
 
 ## Dependencies
 - [PRAW 7.7.1](https://praw.readthedocs.io/en/stable/index.html)
