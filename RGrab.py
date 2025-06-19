@@ -12,11 +12,12 @@ class Scraper(QtCore.QObject):
     scrape_finished = QtCore.Signal(int, str)
     finished = QtCore.Signal()
     
-    def __init__(self, r_url, outfile, reddit):
+    def __init__(self, r_url, outfile, reddit, author_names = False):
         super().__init__()
         self.r_url = r_url
         self.outfile = outfile
         self.reddit = reddit
+        self.author_names = author_names
         
     @QtCore.Slot() 
     def scrape(self):
@@ -45,7 +46,15 @@ class Scraper(QtCore.QObject):
                 for t in trees:
                     for comment in t.list():
                         f.write("\n")
-                        f.write(re.sub(r'\s+',' ',comment.body))
+                        comment_name = ""
+                        if self.author_names:
+                            try:
+                                comment_name = comment.author.name
+                            except:
+                                comment_name = "NAME NOT GIVEN"
+                            comment_name += " : "
+                        comment_body = comment.body
+                        f.write(re.sub(r'\s+',' ',comment_name + comment_body))
                         f.write("\n")
                         comment_counter+=1
                     progress_counter+=1
@@ -88,8 +97,10 @@ class RGrabWidget(QtWidgets.QWidget):
         self.row2.addWidget(self.test_text)
         
         self.scrape_button = QtWidgets.QPushButton("Scrape Reddit Thread")
+        self.show_author_names_checkbox = QtWidgets.QCheckBox("Show Author Names?")
         self.row3 = QtWidgets.QHBoxLayout()
         self.row3.addWidget(self.scrape_button)
+        self.row3.addWidget(self.show_author_names_checkbox)
         
         self.result_text = QtWidgets.QLabel("", alignment=QtCore.Qt.AlignCenter)
         self.progress_bar = QtWidgets.QProgressBar()
@@ -141,7 +152,8 @@ class RGrabWidget(QtWidgets.QWidget):
         
         # Initialize Thread and Worker
         self.scrape_thread = QtCore.QThread()
-        self.scraper = Scraper(self.r_link_text.text(), self.test_text.text(), self.reddit)
+        show_author_name_checked = self.show_author_names_checkbox.isChecked()
+        self.scraper = Scraper(self.r_link_text.text(), self.test_text.text(), self.reddit, show_author_name_checked)
         self.scraper.moveToThread(self.scrape_thread)
         
         self.scrape_thread.started.connect(self.scraper.scrape)
